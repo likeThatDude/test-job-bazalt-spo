@@ -25,7 +25,7 @@ async def async_version():
     branch1 = "p10"
     branch2 = "sisyphus"
 
-    output_dir = Path('data')
+    output_dir = Path('../data')
     output_dir.mkdir(exist_ok=True)
 
     file_path1 = output_dir / f"{branch1}_packages.json"

@@ -1,5 +1,5 @@
 import asyncio
-from uploads_data import async_version
+from core.parse_data import async_version
 
 
 def main():
