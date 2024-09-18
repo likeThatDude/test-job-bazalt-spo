@@ -36,5 +36,4 @@ async def async_version():
         get_packages_async(branch2, file_path2)
     ]
 
-    # Параллельное выполнение асинхронных задач
     await asyncio.gather(*tasks)
