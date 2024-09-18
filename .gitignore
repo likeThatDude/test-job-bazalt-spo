@@ -134,3 +134,8 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 .idea/
+
+# settings files
+test_task_bazalt_spo.egg-info
+build
+dist
