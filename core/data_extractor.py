@@ -1,39 +1,11 @@
 import json
-import multiprocessing
-import os
-import re
-import time
 from multiprocessing import Pool
-from pathlib import Path
-import dataclasses
-from typing import Callable, Tuple
-from itertools import zip_longest
 
-p10_data = Path(__file__).parent.parent / 'data/p10_packages.json'
-sisyphus_data = Path(__file__).parent.parent / 'data/sisyphus_packages.json'
+from typing import Callable
 
-
-def create_variables(path: Path) -> dict:
-    with open(path, 'r') as f:
-        data = json.load(f)
-    return data
-
-
-p10_json = create_variables(p10_data)['packages']
-sisyphus_json = create_variables(sisyphus_data)['packages']
-print(len(p10_json) + len(sisyphus_json))
-
-
-@dataclasses.dataclass()
-class Package:
-    name: str
-    epoch: int
-    version: str
-    release: str
-    arch: str
-    disttag: str
-    buildtime: int
-    source: str
+from core.classes import Package
+from core.utils import generate_package_set, compare_versions, check_difficult, worker, key_func_name, \
+    create_response
 
 
 def unic_first_list(dict_list1: dict, dict_list2: dict, key_func: Callable[['Package'], tuple]) -> list:
@@ -48,47 +20,6 @@ def unic_second_list(dict_list1: dict, dict_list2: dict, key_func: Callable[['Pa
     return data
 
 
-def split_version(version: str) -> list:
-    return [int(part) if part.isdigit() else part for part in re.split(r'(\d+)', version) if part]
-
-
-def compare_versions(version1: str, version2: str) -> bool:
-    split1 = split_version(version1)
-    split2 = split_version(version2)
-
-    for part1, part2 in zip_longest(split1, split2, fillvalue=''):
-        if isinstance(part1, int) and isinstance(part2, int):
-            if part1 > part2:
-                return True
-            else:
-                return False
-        elif isinstance(part1, int) and isinstance(part2, str):
-            return True
-        elif isinstance(part1, str) and isinstance(part2, int):
-            return False
-        elif isinstance(part1, str) and isinstance(part2, str):
-            if part1 > part2:
-                return True
-            else:
-                return False
-    return False
-
-
-def generate_package_set(dict_list):
-    package_dict = {}
-    for item in dict_list:
-        key = (item['name'], item['arch'])
-        if key not in package_dict:
-            package_dict[key] = {
-                'epoch': item['epoch'],
-                'version': item['version'],
-                'release': item['release'],
-            }
-        else:
-            'ВНИМАНИЕ ПОВТОР !'
-    return package_dict
-
-
 def be_into_to_lists(dict_list1: dict, dict_list2: dict) -> list:
     package_set = generate_package_set(dict_list2)
     data = [
@@ -100,46 +31,33 @@ def be_into_to_lists(dict_list1: dict, dict_list2: dict) -> list:
     return data
 
 
-def worker(func, *args):
-    return func(*args)
+def multiprocess_variant(processes_count: int, first_package, second_package):
+    with Pool(processes=processes_count) as pool:
+        results = pool.starmap(
+            worker,
+            [
+                (unic_first_list, first_package, second_package, key_func_name),
+                (unic_second_list, first_package, second_package, key_func_name),
+                (be_into_to_lists, second_package, first_package)
+            ]
+        )
+    return results
 
 
-def key_func_name(pkg):
-    return (pkg.name, pkg.arch)
+def sync_variant(first_package, second_package):
+    results = [
+        unic_first_list(first_package, second_package, lambda pkg: (pkg.name, pkg.arch)),
+        unic_second_list(first_package, second_package, lambda pkg: (pkg.name, pkg.arch)),
+        be_into_to_lists(second_package, first_package)
+    ]
+    return results
 
 
-def check_difficult(dict_list1: dict, dict_list2: dict) -> Tuple[bool, int]:
-    length_sum = len(dict_list1) + len(dict_list2)
-    num_cores = multiprocessing.cpu_count()
-    if length_sum > 1_600_000:
-        if num_cores == 2:
-            return (True, 2) if length_sum >= 2_100_000 else (False, 0)
-        elif num_cores > 2:
-            return True, 3
-    return False, 0
-
-
-def main():
-    execution_options = check_difficult(p10_json, sisyphus_json)
-
+def get_sorted_data(first_package: list, second_package: list) -> json:
+    execution_options = check_difficult(first_package, second_package)
     if execution_options[0]:
-        with Pool(processes=execution_options[1]) as pool:
-            results = pool.starmap(
-                worker,
-                [
-                    (unic_first_list, p10_json, sisyphus_json, key_func_name),
-                    (unic_second_list, p10_json, sisyphus_json, key_func_name),
-                    (be_into_to_lists, sisyphus_json, p10_json)
-                ]
-            )
-        return results
+        sorted_data = multiprocess_variant(execution_options[1], first_package, second_package)
     else:
-        return [
-            unic_first_list(p10_json, sisyphus_json, lambda pkg: (pkg.name, pkg.arch)),
-            unic_second_list(p10_json, sisyphus_json, lambda pkg: (pkg.name, pkg.arch)),
-            be_into_to_lists(sisyphus_json, p10_json)
-        ]
+        sorted_data = sync_variant(first_package, second_package)
 
-
-if __name__ == '__main__':
-    main()
+    return create_response(sorted_data)
