@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import re
+import sys
 from datetime import datetime
 from itertools import zip_longest
 from typing import Tuple
@@ -25,15 +26,13 @@ def split_version_release(version_release: str) -> list:
     return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", version_release) if part]
 
 
-def compare_versions_release(version1: str, version2: str, release: bool = False) -> bool:
+def compare_versions_release(version1: str, version2: str) -> bool:
     """
     Compares two strings of versions or releases to determine if the first is larger than the second.
 
     Args:
         version1 (str): The first version string.
         version2 (str): The second version string.
-        release (bool): Determines whether the version or release field was passed in for comparison.
-
     Returns:
         bool: True if version1 is greater than version2, False otherwise.
 
@@ -43,70 +42,42 @@ def compare_versions_release(version1: str, version2: str, release: bool = False
         compare_versions("1.2.3", "1.2.4")
         False
     """
-    split1 = split_version_release(version1)
-    split2 = split_version_release(version2)
-
-    if split1 != split2:
-        for part1, part2 in zip_longest(split1, split2, fillvalue=""):
-
-            if isinstance(part1, int) and isinstance(part2, int):
-                if part1 > part2:
-                    return True
-                elif part1 == part2:
-                    continue
-                else:
-                    return False
-            elif isinstance(part1, int) and isinstance(part2, str):
-                return True
-            elif isinstance(part1, str) and isinstance(part2, int):
-                return False
-            elif isinstance(part1, str) and isinstance(part2, str):
-                if '.' not in part1 and '.' not in part2:
-                    if part1 > part2:
-                        return True
-                    elif part1 == part2:
+    data1 = version1.split('.')
+    fixed_data = [split_version_release(i) for i in data1]
+    data2 = version2.split('.')
+    fixed_data2 = [split_version_release(i) for i in data2]
+    zip_data = list(zip_longest(fixed_data, fixed_data2, fillvalue=None))
+    for i in zip_data:
+        if None not in i:
+            first_len = len(i[0])
+            second_len = len(i[1])
+            for index in range(first_len if first_len < second_len else second_len):
+                if isinstance(i[0][index], int) and isinstance(i[1][index], int):
+                    if i[0][index] == i[1][index]:
                         continue
                     else:
+                        return i[0][index] > i[1][index]
+                if isinstance(i[0][index], str) and isinstance(i[1][index], int):
+                    return False
+                if isinstance(i[0], int) and isinstance(i[1], str):
+                    return True
+                if isinstance(i[0][index], str) and isinstance(i[1][index], str):
+                    if i[0][index] == i[1][index]:
+                        continue
+                    else:
+                        return i[0][index] > i[1][index]
+            else:
+                if first_len != second_len:
+                    if first_len > second_len and isinstance(i[0][second_len], str):
                         return False
-                else:
-                    if part1.startswith('.') and not part2.startswith('.'):
+                    else:
                         return True
-                    if not part1.startswith('.') and part2.startswith('.'):
-                        return False
-                    if part1.startswith('.') and part2.startswith('.'):
-                        if part1 == '.' and part2 == '.':
-                            continue
-                        if part1 == '.' and len(part2) > 1:
-                            return True
-                        else:
-                            if part1[1] > part2[1]:
-                                return True
-                            elif part1[1] < part2[1]:
-                                return False
-                            elif part1[1] == part2[1]:
-                                first_len = len(part1)
-                                second_len = len(part2)
-                                if first_len > second_len:
-                                    return True
-                                elif first_len < second_len:
-                                    return False
-                                else:
-                                    first_index = 2
-                                    second_index = 2
 
-                                    while first_index != first_len or second_len != second_index:
-                                        if part1[first_index] > part2[second_index]:
-                                            return True
-                                        elif part1[first_index] < part2[second_index]:
-                                            return False
-                                        else:
-                                            first_index += 1
-                                            second_index += 1
-    else:
-        if not release:
-            return True
         else:
-            return False
+            if i[0] is None:
+                return False
+            else:
+                return True
 
 
 def generate_package_set(dict_list: list) -> dict:

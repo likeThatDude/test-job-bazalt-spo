@@ -58,7 +58,7 @@ def be_into_to_lists(data_list1: list, data_list2: list) -> list:
         if (d["name"], d["arch"]) in package_set
            and d["epoch"] >= package_set[(d["name"], d["arch"])]["epoch"]
            and compare_versions_release(d["version"], package_set[(d["name"], d["arch"])]["version"])
-           and compare_versions_release(d["release"], package_set[(d["name"], d["arch"])]["release"], release=True)
+           and compare_versions_release(d["release"], package_set[(d["name"], d["arch"])]["release"])
     ]
     return data
 
