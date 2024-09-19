@@ -61,12 +61,18 @@ def compare_versions_release(version1: str, version2: str, release: bool = False
             elif isinstance(part1, str) and isinstance(part2, int):
                 return False
             elif isinstance(part1, str) and isinstance(part2, str):
-                if part1 > part2:
-                    return True
-                elif part1 == part2:
-                    continue
+                if '.' not in part1 and '.' not in part2:
+                    if part1 > part2:
+                        return True
+                    elif part1 == part2:
+                        continue
+                    else:
+                        return False
                 else:
-                    return False
+                    if part1.startswith('.') and not part2.startswith('.'):
+                        return True
+                    if not part1.startswith('.') and part2.startswith('.'):
+                        return False
     else:
         if not release:
             return True
