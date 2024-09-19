@@ -73,6 +73,35 @@ def compare_versions_release(version1: str, version2: str, release: bool = False
                         return True
                     if not part1.startswith('.') and part2.startswith('.'):
                         return False
+                    if part1.startswith('.') and part2.startswith('.'):
+                        if part1 == '.' and part2 == '.':
+                            continue
+                        if part1 == '.' and len(part2) > 1:
+                            return True
+                        else:
+                            if part1[1] > part2[1]:
+                                return True
+                            elif part1[1] < part2[1]:
+                                return False
+                            elif part1[1] == part2[1]:
+                                first_len = len(part1)
+                                second_len = len(part2)
+                                if first_len > second_len:
+                                    return True
+                                elif first_len < second_len:
+                                    return False
+                                else:
+                                    first_index = 2
+                                    second_index = 2
+
+                                    while first_index != first_len or second_len != second_index:
+                                        if part1[first_index] > part2[second_index]:
+                                            return True
+                                        elif part1[first_index] < part2[second_index]:
+                                            return False
+                                        else:
+                                            first_index += 1
+                                            second_index += 1
     else:
         if not release:
             return True
