@@ -4,8 +4,9 @@ import json
 import sys
 from pathlib import Path
 
-from core.parse_data import async_version
 from core.data_extractor import get_sorted_data
+from core.parse_data import async_version
+from core.utils import colorize_text
 
 
 def main():
@@ -36,33 +37,60 @@ def main():
         $ python script.py --branch1 branch1_name --branch2 branch2_name --write /path/to/output
         $ python script.py --branch1 branch1_name --branch2 branch2_name --console
     """
-    parser = argparse.ArgumentParser(description='Compare packages between two branches.')
-    parser.add_argument('--branch1', required=True, help='Name of the first branch')
-    parser.add_argument('--branch2', required=True, help='Name of the second branch, '
-                                                         'the branch in which we will search for newer versions')
-    parser.add_argument('--write', help='Path to the output file, will be written '
-                                        'to the file branch1-branch2.json')
-    parser.add_argument('--console', action='store_true', help='Output the result to the stdout')
+    parser = argparse.ArgumentParser(description="Compare packages between two branches.")
+    parser.add_argument("--branch1", required=True, help="Name of the first branch")
+    parser.add_argument(
+        "--branch2",
+        required=True,
+        help="Name of the second branch, " "the branch in which we will search for newer versions",
+    )
+    parser.add_argument(
+        "--write",
+        help="Path to the output file, will be written " "to the file branch1-branch2.json",
+    )
+    parser.add_argument(
+        "--console",
+        action="store_true",
+        help="Output the result to the stdout",
+    )
 
     args = parser.parse_args()
 
-    sys.stdout.write("Hey, I'm starting work." + '\n')
-    sys.stdout.write(f"I'm starting work on two branches: {args.branch1} and {args.branch2}" + '\n')
+    sys.stdout.write(f"\n{colorize_text(color='green', text="Hey, I'm starting work.")}" + "\n")
+    sys.stdout.write(
+        f"\n\tI'm starting work on two branches: "
+        f"{colorize_text('green', args.branch1)} "
+        f"and "
+        f"{colorize_text('green', args.branch2)}." + "\n"
+    )
 
-    sys.stdout.write("\nSending requests to the API\n")
+    sys.stdout.write("\n\tSending requests to the API\n")
     received_data = asyncio.run(async_version(args.branch1, args.branch2))
-    sys.stdout.write("Data successfully received\n")
+    sys.stdout.write("\tData successfully received\n")
 
-    sys.stdout.write("\nI'm starting to work with the data\n")
+    sys.stdout.write("\n\tI'm starting to work with the data\n")
     result = get_sorted_data(received_data[0], received_data[1])
-    sys.stdout.write("Everything went well, the data is sorted\n")
-    sys.stdout.write("\nThe results will be available according to your settings\n")
+    sys.stdout.write("\tEverything went well, the data is sorted\n")
 
     if args.write is not None:
-        path = Path(args.write) / f'{args.branch1}-{args.branch2}.json'
-        with open(path, 'w') as file:
+        path = Path(args.write) / f"{args.branch1}-{args.branch2}.json"
+        with open(path, "w") as file:
             json.dump(result, file, indent=4)
+        sys.stdout.write(
+            f"\n\t{
+        colorize_text(
+            'green',
+            'The result of the calculations is written to a file at the path: ')}"
+            f"{colorize_text('purple', str(path))}\n"
+        )
 
     if args.console:
         formatted_json = json.dumps(result, indent=4, ensure_ascii=False)
-        sys.stdout.write(formatted_json + '\n')
+        sys.stdout.write(formatted_json + "\n")
+
+    sys.stdout.write(
+        f"\n{
+    colorize_text(
+        'green',
+        'The results will be available according to your settings')}\n"
+    )

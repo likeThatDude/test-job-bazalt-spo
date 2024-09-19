@@ -1,12 +1,21 @@
 import json
+import sys
 from multiprocessing import Pool
 from typing import Callable
 
 from core.classes import Package
-from core.utils import check_difficult, compare_versions, create_response, generate_package_set, key_func_name, worker
+from core.utils import (
+    check_difficult,
+    colorize_text,
+    compare_versions_release,
+    create_response,
+    generate_package_set,
+    key_func_name,
+    worker,
+)
 
 
-def unic_first_list(data_list1: list, data_list2: list, key_func: Callable[["Package"], tuple]) -> list:
+def search_unic_packages(data_list1: list, data_list2: list, key_func: Callable[["Package"], tuple]) -> list:
     """
     Filters items from the first list that are not in the second list, based on the key function.
 
@@ -16,7 +25,7 @@ def unic_first_list(data_list1: list, data_list2: list, key_func: Callable[["Pac
         key_func (Callable[["Package"], tuple]): A function to extract the key from a package.
 
     Returns:
-        list: A list of packages that are unique to the first list (not present in the second list).
+        list: A list of packages that are present in the first list but not present in the second list.
 
     Examples:
         unic_first_list(list1, list2, lambda pkg: (pkg.name, pkg.arch))
@@ -24,27 +33,6 @@ def unic_first_list(data_list1: list, data_list2: list, key_func: Callable[["Pac
     """
     package_set = {key_func(Package(**d)) for d in data_list2}
     data = [d for d in data_list1 if key_func(Package(**d)) not in package_set]
-    return data
-
-
-def unic_second_list(data_list1: list, data_list2: list, key_func: Callable[["Package"], tuple]) -> list:
-    """
-    Filters items from the second list that are not in the first list, based on the key function.
-
-    Args:
-        data_list1 (list): The first list of dictionaries representing packages.
-        data_list2 (list): The second list of dictionaries representing packages.
-        key_func (Callable[["Package"], tuple]): A function to extract the key from a package.
-
-    Returns:
-        list: A list of packages that are unique to the second list (not present in the first list).
-
-    Examples:
-        unic_second_list(list1, list2, lambda pkg: (pkg.name, pkg.arch))
-        [{'name': 'pkg3', 'arch': 'x86_64'}, {'name': 'pkg4', 'arch': 'arm'}]
-    """
-    package_set = {key_func(Package(**d)) for d in data_list1}
-    data = [d for d in data_list2 if key_func(Package(**d)) not in package_set]
     return data
 
 
@@ -68,8 +56,9 @@ def be_into_to_lists(data_list1: list, data_list2: list) -> list:
         d
         for d in data_list1
         if (d["name"], d["arch"]) in package_set
-        and d["epoch"] >= package_set[(d["name"], d["arch"])]["epoch"]
-        and compare_versions(d["version"], package_set[(d["name"], d["arch"])]["version"])
+           and d["epoch"] >= package_set[(d["name"], d["arch"])]["epoch"]
+           and compare_versions_release(d["version"], package_set[(d["name"], d["arch"])]["version"])
+           and compare_versions_release(d["release"], package_set[(d["name"], d["arch"])]["release"], release=True)
     ]
     return data
 
@@ -95,15 +84,15 @@ def multiprocess_variant(processes_count: int, first_package: list, second_packa
             worker,
             [
                 (
-                    unic_first_list,
+                    search_unic_packages,
                     first_package,
                     second_package,
                     key_func_name,
                 ),
                 (
-                    unic_second_list,
-                    first_package,
+                    search_unic_packages,
                     second_package,
+                    first_package,
                     key_func_name,
                 ),
                 (be_into_to_lists, second_package, first_package),
@@ -128,8 +117,8 @@ def sync_variant(first_package: list, second_package: list) -> list:
         [[unique_in_first], [unique_in_second], [common_and_newer_versions]]
     """
     results = [
-        unic_first_list(first_package, second_package, lambda pkg: (pkg.name, pkg.arch)),
-        unic_second_list(first_package, second_package, lambda pkg: (pkg.name, pkg.arch)),
+        search_unic_packages(first_package, second_package, lambda pkg: (pkg.name, pkg.arch)),
+        search_unic_packages(second_package, first_package, lambda pkg: (pkg.name, pkg.arch)),
         be_into_to_lists(second_package, first_package),
     ]
     return results
@@ -165,4 +154,12 @@ def get_sorted_data(first_package: list, second_package: list) -> json:
     else:
         sorted_data = sync_variant(first_package, second_package)
 
+    sys.stdout.write(
+        f"\tNumber of packets found for the first branch: "
+        f"{colorize_text('red', str(len(sorted_data[0])))}"
+        f"\n\tNumber of packets found for the second branch: "
+        f"{colorize_text('red', str(len(sorted_data[1])))}\n "
+        f"\tAll packages whose version-release is larger in the second branch: "
+        f"{colorize_text('red', str(len(sorted_data[2])))}\n"
+    )
     return create_response(sorted_data)

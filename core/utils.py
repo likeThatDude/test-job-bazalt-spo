@@ -6,12 +6,12 @@ from itertools import zip_longest
 from typing import Tuple
 
 
-def split_version(version: str) -> list:
+def split_version_release(version_release: str) -> list:
     """
     Splits a version string into a list of integers and strings.
 
     Args:
-        version (str): The version string to be split.
+        version_release (str): The version string to be split.
 
     Returns:
         list: A list where version numbers are represented as integers and non-numeric parts as strings.
@@ -22,16 +22,17 @@ def split_version(version: str) -> list:
         split_version("1.2a3")
         [1, '.', 2, 'a', 3]
     """
-    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", version) if part]
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", version_release) if part]
 
 
-def compare_versions(version1: str, version2: str) -> bool:
+def compare_versions_release(version1: str, version2: str, release: bool = False) -> bool:
     """
-    Compares two version strings to determine if the first is greater than the second.
+    Compares two strings of versions or releases to determine if the first is larger than the second.
 
     Args:
         version1 (str): The first version string.
         version2 (str): The second version string.
+        release (bool): Determines whether the version or release field was passed in for comparison.
 
     Returns:
         bool: True if version1 is greater than version2, False otherwise.
@@ -42,25 +43,35 @@ def compare_versions(version1: str, version2: str) -> bool:
         compare_versions("1.2.3", "1.2.4")
         False
     """
-    split1 = split_version(version1)
-    split2 = split_version(version2)
-    for part1, part2 in zip_longest(split1, split2, fillvalue=""):
+    split1 = split_version_release(version1)
+    split2 = split_version_release(version2)
 
-        if isinstance(part1, int) and isinstance(part2, int):
-            if part1 > part2:
+    if split1 != split2:
+        for part1, part2 in zip_longest(split1, split2, fillvalue=""):
+
+            if isinstance(part1, int) and isinstance(part2, int):
+                if part1 > part2:
+                    return True
+                elif part1 == part2:
+                    continue
+                else:
+                    return False
+            elif isinstance(part1, int) and isinstance(part2, str):
                 return True
-            else:
+            elif isinstance(part1, str) and isinstance(part2, int):
                 return False
-        elif isinstance(part1, int) and isinstance(part2, str):
+            elif isinstance(part1, str) and isinstance(part2, str):
+                if part1 > part2:
+                    return True
+                elif part1 == part2:
+                    continue
+                else:
+                    return False
+    else:
+        if not release:
             return True
-        elif isinstance(part1, str) and isinstance(part2, int):
+        else:
             return False
-        elif isinstance(part1, str) and isinstance(part2, str):
-            if part1 > part2:
-                return True
-            else:
-                return False
-    return False
 
 
 def generate_package_set(dict_list: list) -> dict:
@@ -228,3 +239,11 @@ def create_response(data: list) -> dict:
         },
     }
     return result
+
+
+def colorize_text(color: str, text: str) -> str:
+    colors = {"green": "\033[92m", "red": "\033[91m", "purple": "\033[95m"}
+    reset = "\033[0m"
+
+    # Получаем цвет из словаря или возвращаем текст без изменений, если цвет не найден
+    return f"{colors[color]}{text}{reset}" if color in colors else text
