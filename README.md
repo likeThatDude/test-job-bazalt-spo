@@ -48,21 +48,21 @@ After checking if the data is successfully received, the necessary packages are 
 In case of an error, an error is sent to the console with the name of the branch in which it occurred and the status code of the error.  
 
 ### ***Data Processing***
-The handler receives two lists of packets and determines the number of packets. If the total number of packets is greater than 1,600,000, the application  
+The handler receives two lists of packages and determines the number of packages. If the total number of packages is greater than 1,600,000, the application  
 will check the hardware parameters to try to run the calculations in multithreaded mode.  
 How the check happens:
-- The handler receives two lists of packets, it determines the number of packets.
-  - If the total number of packets is less than 1.600.000, the sorting will be done in normal synchronous mode.  
-  - If the total number of packets is more than 1,600,000, it receives information about the number of cores of the processor on which the application is running.
+- The handler receives two lists of packages, it determines the number of packages.
+  - If the total number of packages is less than 1.600.000, the sorting will be done in normal synchronous mode.  
+  - If the total number of packages is more than 1,600,000, it receives information about the number of cores of the processor on which the application is running.
   - If the system has 3 or more cores, the sorting will be performed in three processes, which significantly increases the sorting execution time.
-  - If the system has 2 cores, it checks that the total number of packets is more than 2,100,000, if it is less than that, the synchronous sorting method works faster.  
+  - If the system has 2 cores, it checks that the total number of packages is more than 2,100,000, if it is less than that, the synchronous sorting method works faster.  
     synchronous sorting method, if there are more of them, then the sorting will be done in two processes.
   - Otherwise the execution will be done in normal synchronous mode.
 - After selecting the sorting mode, the data is passed to the main logic.
 - The function for working with data is called.
   - It creates a tuple (for quick access by hash, the package with which the comparison will be performed), based on the  
     keys by which sorting will be performed.
-  - Packets that will be compared, are processed to obtain the necessary keys and compare them with the 2nd package.
+  - packages that will be compared, are processed to obtain the necessary keys and compare them with the 2nd package.
   - The resulting list of packages is given for further processing (as a result, we get two lists of packages with unique data).
 - The first list of packages is searched for newer version-release packages.
   - Packages are processed, a dictionary is created with a key like tuple(name, arch), and values (epoch, version, release).  
