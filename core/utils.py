@@ -1,7 +1,6 @@
 import multiprocessing
 import os
 import re
-import sys
 from datetime import datetime
 from itertools import zip_longest
 from typing import Tuple
@@ -23,16 +22,70 @@ def split_version_release(version_release: str) -> list:
         split_version("1.2a3")
         [1, '.', 2, 'a', 3]
     """
-    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", version_release) if part]
+    result = [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r"(\d+)", version_release) if part]
+    return result
 
 
-def compare_versions_release(version1: str, version2: str) -> bool:
+def data_preparation(version1: str, version2: str) -> tuple:
+    """
+    Prepares data from version strings by splitting them into components.
+
+    Args:
+        version1 (str): The first version as a string.
+        version2 (str): The second version as a string.
+
+    Returns:
+        tuple: A tuple containing two lists:
+            - A list of split components of the first version.
+            - A list of split components of the second version.
+
+    Examples:
+        data_preparation("alt1.qa2", "alt1.p10.1")
+        ([['alt', 1], ['qa', 2]], [['alt', 1], ['p', 10], [1]])
+    """
+    data1 = re.split(r'[^a-zA-Z0-9]+', version1)
+    data2 = re.split(r'[^a-zA-Z0-9]+', version2)
+
+    fixed_data = [split_version_release(i) for i in data1]
+    fixed_data2 = [split_version_release(i) for i in data2]
+    return fixed_data, fixed_data2
+
+
+def create_zip_data(fixed_data: tuple) -> list:
+    """
+    Creates a list where pairs of elements from two lists are combined into tuples.
+
+    Args:
+        fixed_data (tuple): A tuple containing two lists to be zipped together.
+
+    Returns:
+        list: A list where each element is a list of tuples,
+              combining elements from both lists.
+              If one list is shorter, None will be substituted.
+
+    Examples:
+        create_zip_data(([['alt', 1], ['qa', 2]], [['alt', 1], [15]]))
+        [[('alt', 'alt'), (1, None)], [('qa', None), (2, None)]]
+    """
+    zip_data = [
+        list(zip_longest(r1 or [], r2 or [], fillvalue=None))
+        for r1, r2 in zip_longest(fixed_data[0], fixed_data[1], fillvalue=None)
+    ]
+    return zip_data
+
+
+def compare_versions_release(version1: str, version2: str, release: bool = False) -> bool:
     """
     Compares two strings of versions or releases to determine if the first is larger than the second.
 
     Args:
         version1 (str): The first version string.
         version2 (str): The second version string.
+        release (bool): The parameter is used to define what is being compared,
+            if it is a release and the releases are the same in the two packages then False is returned,
+            if versions are being compared and they are the same then True is returned to further compare versions.
     Returns:
         bool: True if version1 is greater than version2, False otherwise.
 
@@ -42,42 +95,40 @@ def compare_versions_release(version1: str, version2: str) -> bool:
         compare_versions("1.2.3", "1.2.4")
         False
     """
-    data1 = version1.split('.')
-    fixed_data = [split_version_release(i) for i in data1]
-    data2 = version2.split('.')
-    fixed_data2 = [split_version_release(i) for i in data2]
-    zip_data = list(zip_longest(fixed_data, fixed_data2, fillvalue=None))
-    for i in zip_data:
-        if None not in i:
-            first_len = len(i[0])
-            second_len = len(i[1])
-            for index in range(first_len if first_len < second_len else second_len):
-                if isinstance(i[0][index], int) and isinstance(i[1][index], int):
-                    if i[0][index] == i[1][index]:
-                        continue
-                    else:
-                        return i[0][index] > i[1][index]
-                if isinstance(i[0][index], str) and isinstance(i[1][index], int):
-                    return False
-                if isinstance(i[0], int) and isinstance(i[1], str):
-                    return True
-                if isinstance(i[0][index], str) and isinstance(i[1][index], str):
-                    if i[0][index] == i[1][index]:
-                        continue
-                    else:
-                        return i[0][index] > i[1][index]
-            else:
-                if first_len != second_len:
-                    if first_len > second_len and isinstance(i[0][second_len], str):
-                        return False
-                    else:
-                        return True
+    fixed_data = data_preparation(version1, version2)
 
-        else:
-            if i[0] is None:
-                return False
-            else:
+    zip_data = create_zip_data(fixed_data)
+
+    this_start = True
+
+    for block in zip_data:
+        for data in block:
+
+            if None in data:
+                if not this_start:
+                    return data[0] is None and isinstance(data[1], str)
+                else:
+                    return data[1] is None
+
+            if isinstance(data[0], int) and isinstance(data[1], int):
+                if data[0] == data[1]:
+                    this_start = False
+                    continue
+                return data[0] > data[1]
+
+            elif isinstance(data[0], str) and isinstance(data[1], str):
+                if data[0] == data[1]:
+                    this_start = False
+                    continue
+                return data[0] > data[1]
+
+            elif isinstance(data[0], int) and isinstance(data[1], str):
                 return True
+            elif isinstance(data[0], str) and isinstance(data[1], int):
+                return False
+
+        this_start = True
+    return False if release else True
 
 
 def generate_package_set(dict_list: list) -> dict:

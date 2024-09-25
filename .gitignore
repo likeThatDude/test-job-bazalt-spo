@@ -139,3 +139,7 @@ dmypy.json
 test_task_bazalt_spo.egg-info
 build
 dist
+/data.txt
+/data.py
+/data-v.txt
+/p10-sisyphus.json

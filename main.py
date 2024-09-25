@@ -38,7 +38,11 @@ def main():
         $ python script.py --branch1 branch1_name --branch2 branch2_name --console
     """
     parser = argparse.ArgumentParser(description="Compare packages between two branches.")
-    parser.add_argument("--branch1", required=True, help="Name of the first branch")
+    parser.add_argument(
+        "--branch1",
+        required=True,
+        help="Name of the first branch"
+    )
     parser.add_argument(
         "--branch2",
         required=True,
